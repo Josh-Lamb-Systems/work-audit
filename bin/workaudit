@@ -1,0 +1,14 @@
+#!/bin/bash
+# Work Audit command line. Examples:
+#   bin/workaudit status        today's numbers and setup
+#   bin/workaudit selftest      check Claude Code / Codex can describe a screenshot
+#   bin/workaudit report        write today's report
+#   bin/workaudit audit         write the full audit report
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export WORKAUDIT_HOME="$ROOT"
+export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+  echo "Work Audit isn't installed yet. Run: bash \"$ROOT/install.sh\"" >&2
+  exit 1
+fi
+exec "$ROOT/.venv/bin/python" -m workaudit "$@"

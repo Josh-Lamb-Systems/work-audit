@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Fake `codex` CLI for tests: `codex exec ... -o FILE --image=...` with the prompt on stdin."""
+import json
+import os
+import sys
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv[:1] == ["exec"] and "--help" in argv:
+        print("Usage: codex exec [OPTIONS] [PROMPT]\n  --ephemeral  --skip-git-repo-check  -o, --output-last-message <FILE>"
+              "\n  -i, --image <FILE>...  -s, --sandbox  -C, --cd <DIR>  --color <COLOR>")
+        return 0
+    if argv[:2] == ["login", "status"]:
+        print("Logged in")
+        return 0
+    assert argv[0] == "exec", argv
+    out = argv[argv.index("-o") + 1]
+    images = [a.split("=", 1)[1] for a in argv if a.startswith("--image=")]
+    prompt = sys.stdin.read()
+    log = os.environ.get("FAKE_LOG")
+    if log:
+        with open(log, "a") as fh:
+            fh.write(json.dumps({"cli": "codex", "argv": argv, "n_images": len(images),
+                                 "images_exist": all(os.path.exists(p) for p in images),
+                                 "kind": "describe" if "Front window log" in prompt else "report"}) + "\n")
+    if os.environ.get("FAKE_CODEX_MODE") == "ratelimit":
+        sys.stderr.write("ERROR: You've hit your usage limit. Try again later (429 Too Many Requests)\n")
+        return 1
+    if "Front window log" in prompt:
+        reply = json.dumps({"segments": [{"start": "00:00", "end": "00:05", "task": "Codex-described work",
+                                          "summary": "Something.", "category": "Ops", "apps": "Excel",
+                                          "is_work": "yes"}], "new_task": "false", "checkin_question": "null"})
+    else:
+        reply = "# Report from codex\n## Open questions for tomorrow\n- From codex?"
+    with open(out, "w") as fh:
+        fh.write(reply)
+    print("codex done")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

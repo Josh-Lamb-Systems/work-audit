@@ -1,0 +1,9 @@
+.DS_Store
+env.sh
+config.toml
+data/
+.venv/
+Work Audit.app/
+bin/run.sh
+__pycache__/
+.pytest_cache/

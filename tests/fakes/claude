@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Fake `claude` CLI for tests: speaks the stream-json protocol and logs every call."""
+import json
+import os
+import re
+import sys
+
+HELP = """Usage: claude [options] [command] [prompt]
+  --effort <level>  --safe-mode  --strict-mcp-config  --no-session-persistence
+  --disable-slash-commands  --tools <tools...>  --disallowedTools <tools...>
+  --system-prompt <prompt>  --input-format <format>  --output-format <format>  --verbose  --model <model>
+"""
+
+
+def out(d):
+    sys.stdout.write(json.dumps(d) + "\n")
+
+
+def main():
+    argv = sys.argv[1:]
+    if "--help" in argv:
+        sys.stdout.write(HELP)
+        return 0
+    model = argv[argv.index("--model") + 1] if "--model" in argv else ""
+    system = argv[argv.index("--system-prompt") + 1] if "--system-prompt" in argv else ""
+    raw = sys.stdin.read()
+    msg = json.loads(raw.strip().splitlines()[0])
+    content = msg["message"]["content"]
+    text = "".join(c.get("text", "") for c in content if c.get("type") == "text")
+    images = [c for c in content if c.get("type") == "image"]
+    log = os.environ.get("FAKE_LOG")
+    if log:
+        with open(log, "a") as fh:
+            fh.write(json.dumps({"cli": "claude", "argv": argv, "model": model, "n_images": len(images),
+                                 "image_ok": all(c["source"]["type"] == "base64" and len(c["source"]["data"]) > 100
+                                                 for c in images),
+                                 "kind": "describe" if "Front window log" in text else
+                                 ("audit" if "=== AUDIT DATA ===" in text else "daily"),
+                                 "system_len": len(system), "text_len": len(text)}) + "\n")
+    mode = os.environ.get("FAKE_CLAUDE_MODE", "ok")
+    out({"type": "system", "subtype": "init", "model": model})
+    if mode == "ratelimit":
+        out({"type": "result", "subtype": "success", "is_error": True,
+             "result": "Claude AI usage limit reached. Your limit will reset at 3pm."})
+        return 1
+    if mode == "auth":
+        out({"type": "result", "subtype": "success", "is_error": True, "result": "Invalid API key · Please run /login"})
+        return 1
+    if mode == "crash":
+        sys.stderr.write("segfault-ish\n")
+        return 2
+    if mode == "model_best" and model == "best":
+        out({"type": "result", "subtype": "success", "is_error": True,
+             "result": "API Error: 404 model_not_found: best is not available for your account"})
+        return 1
+    if mode == "garbage":
+        reply = "Sorry, I can't help with that."
+    elif "Front window log" in text:
+        reply = describe_reply(text)
+    elif "=== AUDIT DATA ===" in text:
+        reply = "# Work audit — test\n## Summary\n- Lots of email.\n## Prompt for the next step\n```\nHere's everything I do on a daily basis.\n```"
+    else:
+        reply = ("# Work audit — test day\n## Day at a glance\n- Busy.\n## Open questions for tomorrow\n"
+                 "- Which CRM do you log replies in?\n- How do you decide which leads to drop?\n"
+                 "1. Who approves proposals before they go out?\n## Something else\n- not a question")
+    out({"type": "assistant", "message": {"content": [{"type": "text", "text": reply}]}})
+    out({"type": "result", "subtype": "success", "is_error": False, "result": reply,
+         "usage": {"input_tokens": 10, "output_tokens": 5}})
+    return 0
+
+
+def describe_reply(text):
+    m = re.search(r"Time window: .*? (\d\d:\d\d)–(\d\d:\d\d)", text)
+    start, end = (m.group(1), m.group(2)) if m else ("00:00", "00:05")
+    shots = re.findall(r"^\d+\. \d\d:\d\d:\d\d — ([^—\n]+?)(?: — |$)", text, re.M)
+    app = shots[-1].strip() if shots else "Unknown"
+    prev = re.findall(r'^- \d\d:\d\d–\d\d:\d\d "([^"]+)"', text, re.M)
+    task = "Working in %s" % app
+    new = not prev or prev[-1] != task
+    style = os.environ.get("FAKE_STYLE", "plain")
+    obj = {
+        "segments": [{"start": start, "end": end, "task": task, "summary": "Did things in %s." % app,
+                      "category": "communication" if "Chrome" in app else "deliverable", "apps": [app],
+                      "systems": ["Gmail"] if "Chrome" in app else [], "artifacts": [], "people": ["Acme"],
+                      "is_work": True, "automation_notes": "Replies follow a template."}],
+        "new_task": new,
+        "checkin_question": "Why are you working in %s right now?" % app,
+    }
+    s = json.dumps(obj)
+    if style == "fenced":
+        return "Here you go:\n```json\n" + s + "\n```"
+    return s
+
+
+if __name__ == "__main__":
+    sys.exit(main())

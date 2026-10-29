@@ -1,0 +1,67 @@
+# Work Audit settings. Edit and save: the app picks up changes within 30 seconds.
+
+[audit]
+days = 7                # stop recording after this many calendar days (0 = never stop)
+about_me = ""           # a sentence about your business and role; asked on first launch if left empty
+
+[capture]
+interval_seconds = 5    # screenshot every N seconds
+scope = "window"        # "window" = only the window you're working in (most private)
+                        # "display" = the whole screen that window is on (more context)
+max_side = 1440         # screenshots are shrunk to this many pixels on the longest side
+jpeg_quality = 60
+idle_after_seconds = 300    # stop capturing after 5 minutes without keyboard/mouse input
+change_threshold = 1.5      # how much the screen must change (0-255) to store a new screenshot
+refresh_seconds = 60        # while you're active, store a fresh screenshot at least this often
+keep_all_frames = false     # false = keep only the screenshots the AI looked at (saves disk)
+
+[describe]
+# Which CLI turns screenshots into descriptions. Both use your existing plan.
+backend = "claude"      # "claude" or "codex"
+fallback = "codex"      # tried when the first one fails or hits a usage limit ("" = none)
+window_minutes = 5      # one AI call per 5 minutes of activity, skipped when nothing changed
+max_images = 5          # screenshots per call
+carry_minutes = 15      # while you stay in one window doing similar work, reuse the description this long
+claude_model = "haiku"  # cheap, fast and good at reading screens
+claude_effort = "low"
+codex_model = ""        # empty = your Codex default model
+codex_effort = "low"
+timeout_seconds = 300
+cooldown_minutes = 30   # after a usage-limit error, wait this long before trying that CLI again
+
+[checkins]
+enabled = true
+max_per_day = 15
+min_gap_minutes = 20    # at least this long between questions
+dry_spell_minutes = 75  # ask something if no question for this long
+expire_minutes = 30     # drop a question you never got to (e.g. you were on a call)
+typing_pause_seconds = 4  # wait until you've stopped typing for this long before popping up
+
+[reports]
+daily_at = "18:00"      # write the daily report automatically after this time
+backend = "claude"
+fallback = "codex"
+daily_model = "opus"
+daily_effort = "high"
+audit_model = "best"    # 'best' = the most capable model your plan has (Fable, else Opus)
+audit_effort = "max"
+codex_model = ""
+codex_effort = "high"
+timeout_seconds = 3600
+
+[privacy]
+skip_password_managers_and_banking = true   # also skips incognito/private browser windows
+skip_personal_messaging = true              # Messages, WhatsApp, Signal, Telegram, Messenger…
+skip_call_screens = true                    # Zoom/Meet/Teams/Slack huddles: title only, no screenshot
+skip_password_fields = true                 # pause while you type in any password field
+extra_apps = []             # more apps to never capture, by name or bundle id, e.g. ["Notes", "Photos"]
+extra_domains = []          # more websites to never capture, e.g. ["reddit.com", "mail.google.com/mail/u/1"]
+extra_title_keywords = []   # skip any window whose title contains one of these words
+allow_apps = []             # always capture these apps even if a rule above would skip them
+allow_domains = []          # always capture these sites (e.g. your business bank, if you want it audited)
+
+[paths]
+# Filled in by install.sh. Full paths to the CLIs, plus the PATH from your shell.
+claude = ""
+codex = ""
+extra_path = ""
